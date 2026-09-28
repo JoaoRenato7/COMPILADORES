@@ -141,3 +141,93 @@ para ninguém perder tempo pelo caminho errado.
    `evidencias/verificacao-N.txt`.
 4. Cada integrante recebe uma cópia por e-mail. **Guardem esse e-mail**: é o
    comprovante.
+   
+## Tabela de tokens
+
+| Tipo | Regex / autômato |
+|---|---|
+| `ID` | `[a-zA-Z_][a-zA-Z0-9_]*`, quando o lexema não bate com nenhuma palavra reservada |
+| `FUNCAO` | `funcao` |
+| `RETORNE` | `retorne` |
+| `SE` | `se` |
+| `SENAO` | `senao` |
+| `ENQUANTO` | `enquanto` |
+| `ESCREVA` | `escreva` |
+| `TIPO_INTEIRO` | `inteiro` |
+| `TIPO_REAL` | `real` |
+| `TIPO_LOGICO` | `logico` |
+| `TIPO_TEXTO` | `texto` |
+| `TIPO_VAZIO` | `vazio` |
+| `LOGICO` | `verdadeiro\|falso` |
+| `E` | `e` |
+| `OU` | `ou` |
+| `NAO` | `nao` |
+| `INTEIRO` | `[0-9]+` |
+| `REAL` | `[0-9]+\.[0-9]+`; se houver `.` sem dígito depois, é erro léxico na coluna do `.` |
+| `TEXTO` | `"([^"\\\n]\|\\[nt"\\])*"`; autômato abre→corpo→escape→corpo→fecha; escape inválido, quebra de linha ou fim de arquivo dentro do texto são erro léxico |
+| `MAIS` | `\+` |
+| `MENOS` | `-` |
+| `VEZES` | `\*` |
+| `DIVIDE` | `/` |
+| `RESTO` | `%` |
+| `IGUAL` | `==` |
+| `ATRIBUI` | `=` |
+| `DIFERENTE` | `!=` (o `!` sozinho é erro léxico) |
+| `MENOR` | `<` |
+| `MENOR_IGUAL` | `<=` (lookahead de 1 caractere após `<`) |
+| `MAIOR` | `>` |
+| `MAIOR_IGUAL` | `>=` (lookahead de 1 caractere após `>`) |
+| `ABRE_PAR` | `\(` |
+| `FECHA_PAR` | `\)` |
+| `ABRE_CHAVE` | `\{` |
+| `FECHA_CHAVE` | `\}` |
+| `VIRGULA` | `,` |
+| `PONTO_VIRGULA` | `;` |
+| `FIM_ARQUIVO` | token sintético, sem regex; emitido ao fim do texto |
+| *(ignorados)* espaço/tab/`\r`/`\n` | `[ \t\r\n]+` |
+| *(ignorado)* comentário de linha | `//[^\n]*` |
+| *(ignorado)* comentário de bloco | `/\*.*?\*/`, não aninhado, atravessa linhas; se não fechar, erro léxico na posição onde começou |
+
+
+## Gramática
+
+Gramática em EBNF implementada em `mplc/sintatico.py` por descida recursiva.
+Cada regra corresponde a uma função com o mesmo nome no parser.
+
+```ebnf
+programa       = { funcao } FIM_ARQUIVO ;
+funcao         = "funcao" tipo ID "(" [ parametro { "," parametro } ] ")" bloco ;
+parametro      = tipo ID ;
+tipo           = "inteiro" | "real" | "logico" | "texto" | "vazio" ;
+
+bloco          = "{" { comando } "}" ;
+comando        = bloco
+               | declaracao
+               | ID "=" expressao ";"
+               | chamada ";"
+               | "se" "(" expressao ")" bloco [ "senao" bloco ]
+               | "enquanto" "(" expressao ")" bloco
+               | "escreva" "(" expressao ")" ";"
+               | "retorne" [ expressao ] ";" ;
+declaracao     = tipo ID [ "=" expressao ] ";" ;
+
+expressao      = ou ;
+ou             = e { "ou" e } ;
+e              = igualdade { "e" igualdade } ;
+igualdade      = relacional { ( "==" | "!=" ) relacional } ;
+relacional     = aditiva { ( "<" | "<=" | ">" | ">=" ) aditiva } ;
+aditiva        = multiplicativa { ( "+" | "-" ) multiplicativa } ;
+multiplicativa = unaria { ( "*" | "/" | "%" ) unaria } ;
+unaria         = ( "nao" | "-" ) unaria | primaria ;
+primaria       = INTEIRO | REAL | LOGICO | TEXTO | ID | chamada
+               | "(" expressao ")" ;
+chamada        = ID "(" [ expressao { "," expressao } ] ")" ;
+```
+
+**Como a precedência está codificada:** na hierarquia das regras de expressão.
+Cada nível só se refere ao nível imediatamente mais forte, da mais fraca (`ou`)
+para a mais forte (`primaria`), seguindo a seção 3.3 do `LINGUAGEM.md`; por isso
+o operador mais forte sempre fica mais embaixo na árvore. A repetição
+`{ op operando }` dos níveis binários é implementada como laço, o que dá
+associatividade à esquerda (`10 - 4 - 3` vira `(10 - 4) - 3`), enquanto
+`unaria` chama a si mesma, o que dá associatividade à direita para `nao` e `-`.
