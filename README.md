@@ -231,3 +231,16 @@ o operador mais forte sempre fica mais embaixo na árvore. A repetição
 `{ op operando }` dos níveis binários é implementada como laço, o que dá
 associatividade à esquerda (`10 - 4 - 3` vira `(10 - 4) - 3`), enquanto
 `unaria` chama a si mesma, o que dá associatividade à direita para `nao` e `-`.
+
+## Estrutura de escopos
+
+Os escopos formam uma árvore de dicionários encadeados: cada escopo tem um
+dicionário `nome → símbolo` e um ponteiro para o escopo pai, e a busca de um
+nome sobe por esses ponteiros até o global, o que implementa o sombreamento.
+Durante o percurso, o caminho do escopo atual até a raiz funciona como uma
+pilha (abrir um bloco empilha, fechar desempilha), mas nenhum escopo é
+destruído ao fechar: todos ficam numa lista, na ordem em que abriram.
+Escolhemos assim porque o `--tabela` precisa imprimir todos os escopos no fim,
+e porque a Entrega 4 vai precisar deles para transformar cada nome numa
+posição de memória; com uma pilha que descarta os escopos, essa informação
+se perderia.
