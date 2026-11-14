@@ -1,0 +1,27 @@
+== Numeros que viram texto ==
+o ano 2026 em binario e 11111101010
+
+== Torre de Hanoi com 3 discos ==
+  disco 1: A -> C
+  disco 2: A -> B
+  disco 1: C -> B
+  disco 3: A -> C
+  disco 1: B -> A
+  disco 2: B -> C
+  disco 1: A -> C
+total: 7 movimentos
+
+== As armadilhas da divisao ==
+7 / 2 = 3
+-7 / 2 = -3
+-7 % 3 = -1
+real metade = 7 / 2 guarda:
+3.000000
+ja 7 / 2.0 vale:
+3.500000
+
+== Raiz quadrada por Newton ==
+raiz de 2:
+1.414214
+raiz de 10:
+3.162278

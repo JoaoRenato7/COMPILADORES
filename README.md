@@ -244,3 +244,67 @@ Escolhemos assim porque o `--tabela` precisa imprimir todos os escopos no fim,
 e porque a Entrega 4 vai precisar deles para transformar cada nome numa
 posição de memória; com uma pilha que descarta os escopos, essa informação
 se perderia.
+
+
+## Código intermediário e máquina virtual
+
+O `--ir` é código de três endereços, com no máximo um operador por linha.
+Variáveis aparecem com o número do escopo onde vivem (`x.4` é o `x` do escopo 4
+do `--tabela`), o que separa o `x` de dentro do `x` de fora; `t0`, `t1`, ... são
+temporários e `L0`, `L1`, ... são rótulos. A conversão `inteiro → real` é uma
+instrução própria (`t1 = real t0`), emitida **depois** da conta: por isso
+`real x = 7 / 2;` divide como inteiro e guarda `3.000000`.
+
+O gerador traduz cada linha de três endereços para uma **máquina de pilha** e dá
+a cada nome de uma função uma vaga no registro de ativação (parâmetros primeiro).
+O `.mplb` é texto: uma instrução por linha, com comentários dizendo qual nome
+mora em cada vaga, e as diretivas `.funcao <nome> <tipo> <parametros> <vagas>`,
+`.linha <linha> <coluna>` (posição do comando no fonte, usada nos erros de
+execução), `.fim` e rótulos `L3:`.
+
+A VM tem duas pilhas: a de **operandos**, onde as contas acontecem, e a de
+**chamadas**, com um registro de ativação por chamada em andamento (as vagas da
+função e o ponto de volta). É o registro próprio de cada chamada que faz a
+recursão funcionar.
+
+### Conjunto de instruções
+
+Na coluna da pilha, o topo fica à direita: `a b → r` tira `b` e `a` e põe `r`.
+
+| Instrução | Pilha de operandos | O que faz |
+|---|---|---|
+| `EMPILHA <tipo> <valor>` | `→ v` | empilha uma constante (`inteiro`, `real`, `logico` ou `texto`) |
+| `CARREGA <n>` | `→ v` | empilha o valor da vaga `n` do registro de ativação atual |
+| `GUARDA <n>` | `v →` | desempilha e guarda na vaga `n` do registro de ativação atual |
+| `SOMA` | `a b → a+b` | soma dois números, ou junta dois textos |
+| `SUBTRAI` | `a b → a-b` | subtração |
+| `MULTIPLICA` | `a b → a*b` | multiplicação |
+| `DIVIDE_INTEIRO` | `a b → a/b` | divisão inteira truncada em direção a zero (`-7 / 2` dá `-3`); `b = 0` é erro de execução |
+| `DIVIDE_REAL` | `a b → a/b` | divisão real; `b = 0` é erro de execução |
+| `RESTO` | `a b → a%b` | resto com o sinal do dividendo (`-7 % 3` dá `-1`); `b = 0` é erro de execução |
+| `NEGA` | `a → -a` | troca o sinal |
+| `PARA_REAL` | `i → r` | converte inteiro em real |
+| `IGUAL` | `a b → l` | `verdadeiro` se `a == b` |
+| `DIFERENTE` | `a b → l` | `verdadeiro` se `a != b` |
+| `MENOR` | `a b → l` | `verdadeiro` se `a < b` |
+| `MENOR_IGUAL` | `a b → l` | `verdadeiro` se `a <= b` |
+| `MAIOR` | `a b → l` | `verdadeiro` se `a > b` |
+| `MAIOR_IGUAL` | `a b → l` | `verdadeiro` se `a >= b` |
+| `E` | `a b → l` | `e` lógico (os dois lados já foram calculados: sem curto-circuito) |
+| `OU` | `a b → l` | `ou` lógico (idem) |
+| `NAO` | `a → l` | `nao` lógico |
+| `DESVIA <L>` | `→` | continua a execução no rótulo `L` |
+| `SE_FALSO <L>` | `c →` | desempilha a condição; se for `falso`, continua no rótulo `L` |
+| `CHAMA <f> <n>` | `a1 … an →` | desempilha os `n` argumentos, cria um registro de ativação para `f` com eles nas primeiras vagas, guarda o ponto de volta e salta para `f`; com 100 000 chamadas abertas, é estouro de pilha (erro de execução) |
+| `RETORNA` | `v → v` | descarta o registro de ativação e volta para quem chamou; o valor devolvido continua no topo da pilha |
+| `RETORNA_VAZIO` | `→` | descarta o registro e volta sem valor; no `principal`, termina o programa |
+| `DESCARTA` | `v →` | joga fora o valor de uma função com retorno chamada como comando |
+| `ESCREVA <tipo>` | `v →` | desempilha e imprime no formato do tipo (real com seis casas, lógico como `verdadeiro`/`falso`) |
+
+### Programa do grupo
+
+`exemplos/vitrine.mpl`, com a saída em `exemplos/vitrine.saida`. Como a MPL não
+converte número em texto, o programa escreve essa conversão na própria MPL
+(recursão com `/` e `%`) e a usa para mostrar o ano em binário, a Torre de Hanói
+com a contagem de movimentos, as armadilhas da divisão e a raiz quadrada pelo
+método de Newton.
